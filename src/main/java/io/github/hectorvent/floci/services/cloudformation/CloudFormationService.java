@@ -18,6 +18,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 /**
  * CloudFormation stack lifecycle management — Create, Update, Delete stacks via ChangeSets.
@@ -106,7 +107,7 @@ public class CloudFormationService {
 
     // ── ExecuteChangeSet ──────────────────────────────────────────────────────
 
-    public void executeChangeSet(String stackName, String changeSetName, String region) {
+    public Future<?> executeChangeSet(String stackName, String changeSetName, String region) {
         Stack stack = getStackOrThrow(stackName, region);
         ChangeSet cs = stack.getChangeSets().get(changeSetName);
         if (cs == null) {
@@ -125,7 +126,7 @@ public class CloudFormationService {
         String templateBody = cs.getTemplateBody();
         Map<String, String> params = cs.getParameters() != null ? cs.getParameters() : Map.of();
 
-        executor.submit(() -> executeTemplate(stack, templateBody, params, isCreate, region));
+        return executor.submit(() -> executeTemplate(stack, templateBody, params, isCreate, region));
     }
 
     // ── DeleteChangeSet ───────────────────────────────────────────────────────
@@ -240,7 +241,7 @@ public class CloudFormationService {
 
                     addEvent(stack, logicalId, null, type, "CREATE_IN_PROGRESS", null);
                     resource = provisioner.provision(logicalId, type, props.isMissingNode() ? null : props,
-                            engine, region, config.defaultAccountId());
+                            engine, region, config.defaultAccountId(), stack.getStackName());
                     stack.getResources().put(logicalId, resource);
 
                     physicalIds.put(logicalId, resource.getPhysicalId());
